@@ -14,7 +14,7 @@ output:
 **Estadística para el análisis político 2 - POL304**
  
 ____
-**MIDIENDO LA DEMOCRACIA: OTROS FACTORES A TOMAR EN CUENTA**
+**MIDIENDO LA DEMOCRACIA: OTROS FACTOREsS A TOMAR EN CUENTA**
 
 
 ## **0.Instalamos paquetes**
