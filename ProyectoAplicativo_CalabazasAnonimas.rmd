@@ -1,0 +1,1081 @@
+---
+title: "MIDIENDO LA DEMOCRACIA: FACTORES ALTERNATIVOS"
+author: "Natalia Espinoza y Frank Huallpa"
+date: "11 julio de 2019"
+output:
+  html_document:
+    toc: true
+    toc_depth: 5
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+---
+
+**Estadística para el análisis político 2 - POL304**
+ 
+____
+**MIDIENDO LA DEMOCRACIA: OTROS FACTORES A TOMAR EN CUENTA**
+
+
+## **0.Instalamos paquetes**
+
+```{r}
+install.packages("psych")
+install.packages("ggrepel")
+install.packages("leaflet")
+install.packages("betareg")
+install.packages("dplyr")
+install.packages("oglmx")
+install.packages("xlsx")
+install.packages("rgdal")
+install.packages("openxlsx")
+install.packages("ggplot2")
+install.packages("margins")
+install.packages("htmltab")
+install.packages("httr")
+```
+
+## **1.Carga de datos y limpieza**
+
+### **1.1. Carga de Datos**
+Descargamos la base de datos de nuestra variable dependiente: Calidad de Democracia 
+```{r}
+library(htmltab)
+demoindex = "https://en.wikipedia.org/wiki/Democracy_Index"
+seccion2='//*[@id="mw-content-text"]/div/table[2]/tbody'
+
+democracia= htmltab(doc =demoindex, 
+                  which = seccion2 ,encoding = "UTF-8")
+
+```
+
+Descargamos la base de datos de Mortalidad Infantil:
+```{r}
+#Exportamos tabla de datos
+library(htmltab) 
+urldead = "https://www.cia.gov/library/publications/resources/the-world-factbook/fields/354rank.html" 
+
+deadkids = htmltab(doc = urldead, 
+               which ='//*[@id="rankOrder"]', #herramientas de desarrollador
+               encoding = "UTF-8") 
+
+```
+
+Descargamos la base de datos de Alfabetismo :
+```{r}
+library(htmltab) 
+
+urlanalf = "https://www.worldatlas.com/articles/the-highest-literacy-rates-in-the-world.html" 
+
+analf = htmltab(doc = urlanalf, 
+               which ='//*[@id="artReg-table"]/table', #herramientas de desarrollador
+               encoding = "UTF-8") 
+
+```
+
+Descargamos la base de datos de Esperanza de Vida:
+```{r}
+library(htmltab)
+urlEsperanzaVida = "https://www.cia.gov/library/publications/the-world-factbook/rankorder/2102rank.html"
+
+esperanza = htmltab(doc = urlEsperanzaVida, 
+                which ='//*[@id="rankOrder"]',
+                encoding = "UTF-8")
+```
+
+Descargamos la base de datos de Gasto en educación :
+```{r}
+library(htmltab) 
+
+urlEducacion = "https://www.cia.gov/library/publications/resources/the-world-factbook/fields/369rank.html"
+
+edu = htmltab(doc = urlEducacion, 
+               which ='//*[@id="rankOrder"]',
+               encoding = "UTF-8") #Exportamos tabla de la CIA 
+```
+
+Descargamos la base de datos de Gasto en salud:
+```{r}
+library(htmltab) 
+
+urlSalud = "https://www.cia.gov/library/publications/resources/the-world-factbook/fields/358rank.html"
+
+salud = htmltab(doc = urlSalud, 
+               which ='//*[@id="rankOrder"]',
+               encoding = "UTF-8")
+```
+
+Descargamos la base de datos de Libertades de Prensa:
+```{r}
+#Llamamos a la base de datos con la tabla de Libertad de prensa
+library(openxlsx)
+Prensa = "https://docs.google.com/spreadsheets/d/e/2PACX-1vR8GEwySOCwIQ5VfwNpI0Ydluoaokx4x-2y1D1bqIoZU_4WNEYsYdpXVDCEcajnVQ/pub?output=xlsx" 
+LibertadPrensa=read.xlsx(Prensa, 
+                sheet = 2, 
+                startRow = 5,
+                skipEmptyRows = T, skipEmptyCols = T) #Exportamos excel del drive a R
+```
+
+Descargamos la base de datos de Libertades Civiles y Derechos Políticos que están en un solo excel:  
+```{r}
+#Llamamos a la base de datos con la tabla de Libertades civiles y Derechos politicos
+library(openxlsx)
+noPrensa = "https://docs.google.com/spreadsheets/d/e/2PACX-1vQjtafXVvyArEk7D4Nm_0BcnJ-lFThbS7w5NrN23eJ0G2RBOSjqPdOjkulyhbo1dQ/pub?output=xlsx" 
+PRightsCLiber=read.xlsx(noPrensa, 
+                sheet = 3, 
+                startRow = 1,
+                skipEmptyRows = T, skipEmptyCols = T)
+PRightsCLiber=PRightsCLiber[,c(1, 10, 15)] #Seleccionamos las variables a utilizar
+```
+
+Libertades Civiles:
+```{r}
+LibertadesCiviles=PRightsCLiber[c(1, 3)] #Seleccionamos las dimensiones
+names(LibertadesCiviles)=c("Country", "ScoreCivilLib") #nombramos a las dimensiones
+```
+DerechosPoliticos:
+
+```{r}
+DerechosPoliticos=PRightsCLiber[c(1, 2)]
+names(DerechosPoliticos)=c("Country", "ScorePolRi")
+```
+
+Descargamos la base de datos de PBI (per capita):
+```{r}
+library(htmltab)
+urlppp = "https://www.cia.gov/library/publications/resources/the-world-factbook/fields/211rank.html" 
+
+ppp = htmltab(doc = urlppp, 
+               which ='//*[@id="rankOrder"]', #herramientas de desarrollador
+               encoding = "UTF-8")
+```
+
+
+Descargamos la base de datos Percepción de la corrupción:
+```{r}
+library(htmltab) 
+
+corrup = "https://en.wikipedia.org/wiki/Corruption_Perceptions_Index"
+
+indexcorru = htmltab(doc = corrup, 
+               which ='//*[@id="mw-content-text"]/div/table[3]/tbody',
+               encoding = "UTF-8") 
+```
+Descargamos la base de datos de PBI, la cual será nuestra variable de control:
+```{r}
+library(htmltab)
+urlPBI = "https://www.cia.gov/library/publications/resources/the-world-factbook/fields/208rank.html" 
+
+PBI = htmltab(doc = urlPBI, 
+               which ='//*[@id="rankOrder"]', #herramientas de desarrollador
+               encoding = "UTF-8")
+```
+
+### **1.2.Limpieza de bases de datos**
+Limpiamos la base de datos de la variable dependiente: Calidad de Democracia 
+```{r}
+demo = democracia[,c(2,4:7)]
+demo[,c(2:5)]=lapply(demo[,c(2:5)], as.numeric)
+demo$score=rowSums(demo[,c(2:5)])
+demo[,c(2:5)]=NULL
+names(demo)= c('Country','demoindex')
+demo$demoindex=as.numeric(demo$demoindex)
+demo$Country=trimws(demo$Country,whitespace = "[\\h\\v]")
+```
+
+Limpiamos la base de datos de Mortalidad Infantil:
+```{r}
+#Eliminamos las columnas que no nos sirven y renombramos los que nos quedan
+deadkids = deadkids[,c(2,3)]
+names(deadkids) = c("Country" , "Mortalidadinf") #Renombramos las dimensiones
+deadkids$Mortalidadinf = as.numeric(deadkids$Mortalidadinf) #De character a numerico 
+```
+
+Limpiamos la base de datos de Alfabetismo:
+```{r}
+analf$Rank=NULL 
+names(analf) = c("Country" , "Alfabetismo")
+
+#La columna Analfabetismo debe ser cambiada a numerica
+#Para esto, se debe reemplazar el caracter "%" por vacio 
+analf$Alfabetismo =gsub(" %", "", analf$Alfabetismo) #Reemplazar un solo caracter 
+analf$Alfabetismo = as.numeric(analf$Alfabetismo)
+```
+
+Limpiamos la base de datos de Esperenza de vida:
+```{r}
+#Eliminamos las columnas que no nos sirven y renombramos los que nos quedan
+esperanza = esperanza[,c(2,3)]
+names(esperanza)=c("Country", "AñosEstim")
+esperanza$AñosEstim=as.numeric(esperanza$AñosEstim)
+```
+
+Limpiamos la base de datos de Gasto en Educacion:
+```{r}
+edu=edu[c(2:3)] #Seleccionamos columnas 
+names(edu)=c("Country","EduPBI") #Ponemos nombres a las dimensiones seleccionadas
+edu$EduPBI =   gsub(",", "", edu$EduPBI) #Suplantamos la "," por ""
+edu$EduPBI=as.numeric(edu$EduPBI) #Convertimos a númerico a la variable seleccionada
+edu$Country=trimws(edu$Country,whitespace = "[\\h\\v]") #Por cuestiones de precausión eliminamos si hay algun whitespace
+```
+
+Limpiamos la base de datos de Gasto en Salud:
+```{r}
+salud=salud[c(2,3)]
+names(salud)=c("Country","SaludPBI")
+salud$SaludPBI=as.numeric(salud$SaludPBI)
+salud$Country=trimws(salud$Country,whitespace = "[\\h\\v]")
+```
+
+Limpiamos la base de datos de Libertad de Prensa:
+```{r}
+LibertadPrensa=LibertadPrensa[,c(1, 181)] #Seleccionamos columnas
+names(LibertadPrensa)=c("Country", "PrensaScore") #Nombres a la variable
+LibertadPrensa$PrensaScore=as.numeric(LibertadPrensa$PrensaScore) #Convertimos a númerico
+str(LibertadPrensa)
+```
+
+Limpiamos la base de datos de PBI (per capita): antes PBI
+```{r}
+ppp=ppp[-c(1,4)] #Eliminamos la columna 1 y 4
+names(ppp)=c("Country","pbi") #Nombrar a las variables
+ppp$pbi= gsub("\\$|\\,", "", ppp$pbi) #Sustitución
+ppp$pbi= as.numeric(ppp$pbi) #Convertimos a númerico
+```
+
+*No hay necesidad de limpiar la base de datos de Libertades Civiles y Derechos políticos, ya que lo limpiamos en el anterior chunk 
+
+Limpiamos la base de datos de Percepcion de la corrupcion:
+```{r}
+indexcorru=indexcorru[c(2,3)]
+names(indexcorru)=c("Country","Corrup")
+indexcorru$Corrup=as.numeric(indexcorru$Corrup)
+indexcorru$Country=trimws(indexcorru$Country,whitespace = "[\\h\\v]")
+row.names(indexcorru) = NULL #reseteamos el indice
+```
+
+```{r}
+PBI=PBI[-c(1,4)] #Eliminamos la columna 1 y 4
+names(PBI)=c("Country","PBINacional") #Nombrar a las variables
+PBI$PBINacional= gsub("\\$|\\,", "", PBI$PBINacional) #Sustitución
+PBI$PBINacional= as.numeric(PBI$PBINacional) #Convertimos a númerico
+```
+
+## **2.Aplicación del merge**
+
+Para evitar que se eliminen paises con distinta manera de escritura, emplearemos la siguiente estrategia: 
+1. Hacer un merge donde se incluya todos los casos
+2. Buscar que paises estan escritos de distinta manera
+3. Renombrar los paises que estan escritos de manera distinta 
+
+Despues realizamos los merges de nuestras dimensiones   
+
+Primero el merge de prueba entre Alfabetismo y Mortalidad Infantil:
+```{r}
+#Primero verificamos que no se vayan paises porque tienen nombres distintos en las dos bases de datos. Para esto, creamos un merge 'borrador' que nos permitira ver los paises que se perderian si es que no les cambiamos de nombre. 
+bye1=merge(analf,deadkids, all.x=T,all.y=T)
+```
+
+Cambiamos de nombre a los paises de la variable Alfabetismo:
+```{r}
+#Despues de emplear el codigo bye1[!complete.cases(bye1),] verificamos cuales son los países que se repiten
+analf[183,1] = "Cote d'Ivoire"  
+analf[53,1] = "Micronesia"  
+analf[66,1] = "South Korea"  
+analf[137,1] = "Congo Brazzaville"  
+analf[90,1] = "Venezuela" 
+analf[88,1] = "Gaza Strip"
+analf[78,1] = "Brunei"  
+analf[70,1] = "Macedonia"  
+analf[100,1] = "Vietnam"  
+analf[7,1] = "North Korea" 
+analf[110,1] = "Bolivia" 
+analf[126,1] = "Syria" 
+analf[132,1] = "Iran" 
+analf[146,1] = "Congo Kinshasa" 
+analf[150,1] = "Laos" 
+analf[160,1] = "Tanzania" 
+analf[21,1] = "Russia" 
+analf[29,1] = "Moldova" 
+```
+
+Cambiamos de nombre a los paises de la variable Mortalidad infantil:
+```{r}
+deadkids[8,1] = "Congo Kinshasa" #
+deadkids[16,1] = "Gambia" #
+deadkids[212,1] = "South Korea" #
+deadkids[81,1] = "Micronesia" #
+deadkids[126,1] = "Bahamas" #
+deadkids[75,1] = "North Korea" 
+deadkids[214,1] = "Czech Republic"
+deadkids[23,1] = "Congo Brazzaville"
+```
+
+Ahora si, el merge entre Alfabetismo y Mortalidad Infantil: 
+```{r}
+deanalf = merge(analf, deadkids, by='Country')
+```
+
+Ahora el merge de prueba entre el primer merge y Esperanza de Vida :
+```{r}
+bye2=merge(deanalf,esperanza, all.x=T,all.y=T) #incluyendo todos los casos, incluso los que tienen algun NA 
+```
+
+Empleamos este código bye2[!complete.cases(bye2),] como estrategia para identifcar que paises estan con doble escritura, despues de emplear el codigo identificamos las posiciones de los nombres escrito de manera distinta:
+```{r}
+esperanza[11,1] = "South Korea"
+esperanza[210,1] = "Congo Kinshasa"
+esperanza[206,1] = "Congo Brazzaville"
+esperanza[180,1] = "Gambia"
+esperanza[56,1] = "Czech Republic"
+esperanza[139,1] = "Micronesia"
+esperanza[145,1] = "Bahamas"
+esperanza[157,1] = "North Korea"
+```
+
+Ahora el merge "oficial" de Alfabetismo, Mortalidad infantil y Esperanza:
+```{r}
+idhtotal = merge(deanalf, esperanza, by='Country')
+```
+
+
+Ahora el merge entre variables Salud y Educacion:
+```{r}
+edusalud=merge(edu,salud,all.x=T,all.y=T)
+```
+
+Vemos que países estan escritos de manera distinta:
+```{r}
+edusalud[!complete.cases(edusalud),] #Revisar casos incompletos
+```
+Renombramos paises:
+```{r}
+#Cambiamos de nombre
+edusalud[44, 1] = "Congo Brazzaville"
+edusalud[43, 1]= "Congo Kinshasa"
+edusalud[13,1] = "Bahamas"
+edusalud[122,1] = "Micronesia"
+edusalud[98,1] = "South Korea"
+edusalud[69,1] = "Gambia"
+edusalud[52,1] = "Czech Republic"
+```
+
+
+Ya con el merge, cambiamos de character a numerico:
+```{r}
+edusalud$EduPBI=as.numeric(edusalud$EduPBI)
+edusalud$SaludPBI=as.numeric(edusalud$SaludPBI)
+```
+Revisamos datos incompletos :
+```{r}
+edusalud[!complete.cases(edusalud),] 
+```
+Nos quedamos solo con los datos completos:
+```{r}
+edusalud = edusalud[complete.cases(edusalud),]
+```
+
+Ahora juntamos edusalud con idhtotal
+
+Merge de prueba para verificar que no haya países con diversas escrituras:
+```{r}
+bye3=merge(idhtotal, edusalud, all.x=T,all.y=T)
+
+#Empleamos bye3[!complete.cases(bye3),]  para observar que paises tenian distinta escritura y paises con data incompleta
+```
+Merge de Idh y edusalud, considerando a los casos completos y de igual escritura:
+```{r}
+idhedusalud = merge(idhtotal, edusalud, by='Country')
+
+idhedusalud = idhedusalud[complete.cases(idhedusalud),]
+```
+
+```{r}
+idhedusalud[26,1] ="Cape Verde" #Cambiamos de Cabo a Cape 
+```
+Revisamos que no haya casos incompletos:
+```{r}
+idhedusalud[!complete.cases(idhedusalud),] #Revisar casos completos
+```
+Eliminamos todos los bye para mas orden:
+```{r}
+bye1 = NULL
+bye2 = NULL
+bye3 = NULL
+```
+
+Ahora el merge entre libertades
+
+Primero el merge entre Derechos Politicos y Libertades civiles:
+```{r}
+LibertadesIncompleto=merge(DerechosPoliticos, LibertadesCiviles)
+```
+Verificamos que no hayan casos incompletos:
+```{r}
+LibertadesIncompleto[!complete.cases(LibertadesIncompleto),]
+```
+
+Segundo, el merge de prueba para identificar a los paises con distinta escritura:
+```{r}
+bye4=merge(LibertadesIncompleto, LibertadPrensa, all.x=T,all.y=T)
+# Empleamos el bye4[!complete.cases(bye4),] para revisar datos incompleto y paises con doble escritura
+```
+
+Renombramos los paises que tienen doble escritura:
+```{r}
+LibertadPrensa[42,1] = "Cote d'Ivoire"
+LibertadPrensa[155,1] = "Sao Tome and Principe"
+LibertadesIncompleto[76,1] = "Hong Kong"
+LibertadesIncompleto[172,1] = "Saint Lucia"
+LibertadesIncompleto[173,1] = "Saint Vincent and the Grenadines"
+LibertadesIncompleto[44,1] = "Crimea"
+```
+
+Tercero hacer merge entre todas las libertades (Prensa, Derechos Politicos y Libertades Civiles):
+```{r}
+Libertades=merge(LibertadesIncompleto, LibertadPrensa)
+```
+
+Renombramos a Congo:
+```{r}
+Libertades[39, 1] = "Congo Brazzaville"
+Libertades[40, 1] = "Congo Kinshasa"
+```
+
+Ahora agregamos PBI a nuestra data:
+```{r}
+bye5=merge(Libertades, ppp, all.x=T,all.y=T) #merge de prueba 
+
+#Empleamos el bye5[!complete.cases(bye5),] para revisar datos incompletos y paises con doble escritura
+```
+
+Renombramos a los paises:
+```{r}
+ppp[161,1] = "Congo Brazzaville"
+ppp[62,1] = "Bahamas"
+ppp[157,1] = "Cape Verde"
+ppp[226,1] = "Congo Kinshasa"
+ppp[57,1] = "Czech Republic"
+ppp[197,1] = "Gambia"
+ppp[46,1] = "South Korea"
+ppp[214,1] = "North Korea"
+ppp[189,1] = "Micronesia"
+Libertades[175,1] = "Gambia"
+```
+
+Merge entre PBI (percapita) y Libertades:
+```{r}
+LibPBI=merge(Libertades, ppp)
+```
+Eliminamos los borradores:
+```{r}
+bye4 = NULL
+bye5 = NULL
+```
+
+Juntamos las variables LibPBI con idhedusalud:
+```{r}
+#Verificamos que los paises esten bien escritos
+libidh=merge(LibPBI, idhedusalud, all.x= T, all.y=T)
+# Empleamos el libidh[!complete.cases(libidh),] para encontrar paises con doble escritura 
+```
+
+Al observar que no hay paises de distinta escritura realizamos el merge:
+```{r}
+libidh=merge(LibPBI, idhedusalud, by= "Country")
+```
+
+Antes de continuar, hemos detectado que nuestras dimensiones de Libertad de Prensa y Mortalidad infantil son contraintuitivas. Por ende, lo convertimos a intituivas:
+```{r}
+libidh$PrensaScore= 100 - libidh$PrensaScore
+
+libidh$Mortalidadinf = 110 - libidh$Mortalidadinf
+```
+
+Merge de las Var Ind, con la variable Percepcion de la corrupcion:
+```{r}
+#Verificamos que los paises esten bien escritos
+mergePen=merge(libidh, indexcorru, all.x= T, all.y=T)
+# Empleamos el mergePen[!complete.cases(mergePen),] para encontrar paises con doble escritura 
+```
+Renombramos paises:
+```{r}
+indexcorru[164,1] = "Congo Brazzaville"
+indexcorru[162,1] = "Congo Kinshasa"
+indexcorru[109,1] = "Cote d'Ivoire"
+indexcorru[64,1] = "Sao Tome and Principe"
+```
+
+Al modificar los nombres de paises con distinta escritura realizamos el merge:
+```{r}
+mergePen=merge(libidh, indexcorru, by= "Country")
+```
+
+
+```{r}
+#Verificamos que los paises esten bien escritos
+mergeVarInd=merge(mergePen, PBI, all.x= T, all.y=T)
+# Empleamos el mergeVarInd[!complete.cases(mergeVarInd),] para encontrar paises con doble escritura 
+```
+
+
+```{r}
+mergeVarInd[!complete.cases(mergeVarInd),] #para encontrar paises con doble escritura 
+```
+
+```{r}
+PBI[133,1] = "Congo Brazzaville"
+PBI[182,1] = "Cape Verde"
+PBI[103,1] = "Congo Kinshasa"
+PBI[49,1] = "Czech Republic"
+PBI[176,1] = "Gambia"
+PBI[14,1] = "South Korea"
+```
+
+Al observar que no hay paises de distinta escritura realizamos el merge:
+```{r}
+mergeVarInd=merge(mergePen, PBI, by= "Country")
+```
+
+*Ahora el Merge total de todas nuestras variables* 
+
+Primero, hacemos el merge de prueba entre la data "mergeVarInd" y nuestra variable dependiente "demo":
+```{r}
+bye6 = merge(demo, mergeVarInd, all.x= T, all.y=T)
+#Empleamos bye6[!complete.cases(bye6),] para encontrar que paises estan escritas de manera distinta
+```
+
+Renombramos paises:
+```{r}
+demo[165,1] = "Congo Kinshasa"
+demo[131,1] = "Congo Brazzaville"
+demo[113,1] = "Cote d'Ivoire"
+```
+
+Ahora si, el merge entre todas nuestras variables independientes:
+
+```{r}
+datatotal = merge(demo, mergeVarInd, by= "Country")
+```
+
+Eliminamos bye6:
+```{r}
+bye6 = NULL 
+```
+
+Obtenemos el verdadero gasto tanto en Salud como en Educacion de los paises
+Multiplicamos el PBI con el porcentaje del PBI que se destina a la Salud:
+```{r}
+PBI_multi=datatotal[c(6)]
+GastoSalud=datatotal[c(11)]/100
+Multi1=PBI_multi*GastoSalud
+```
+```{r}
+names(Multi1) = "GastoSalud"
+```
+Multiplicamos el PBI con el porcentaje del PBI que se destina a la Educacion:
+```{r}
+GastoEdu=datatotal[c(10)]/100
+Multi2=PBI_multi*GastoEdu
+```
+```{r}
+names(Multi2) = "GastoEdu"
+```
+
+Merge entre ambas multiplicaciones:
+```{r}
+datatotal= cbind(datatotal, Multi1, Multi2)
+```
+
+```{r}
+datatotal$EduPBI=NULL
+datatotal$SaludPBI=NULL
+datatotal$pbi=NULL
+```
+
+
+
+## **3. Descripción de datos**
+
+Conozcamos los nombres de nuestras variables:
+```{r}
+names(datatotal)
+```
+¿Cuantos elementos tenemos?:
+```{r}
+nrow(datatotal)
+```
+Contamos con 138 paises en nuestra data
+
+observemos la estructura de nuestras dimensiones:
+```{r}
+str(datatotal)
+```
+
+Observamos el minimo, maximo, la media, mediana de nuestras dimensiones:
+```{r}
+summary(datatotal)
+```
+
+## **4.Análisis Factorial**
+```{r}
+library(psych)
+```
+
+Antes de desarrollar el análisis factorial, pasaremos los nombres de los paises al row.names y eliminamos la columna de los nombres de los paises (Country):
+```{r}
+row.names(datatotal) = datatotal$Country
+datatotal$Country = NULL 
+```
+
+Asimismo, estadarizamos nuestras dimensiones para poder desarrollar nuestro analisis factorial:
+
+```{r}
+total5_s = scale(datatotal[c(2:11)]) 
+```
+
+Creamos data frame:
+```{r}
+total5_s=as.data.frame(total5_s)
+```
+Confirmamos que esten estandarizados, al fijarnos que la media es 0:
+```{r}
+summary(total5_s)
+```
+Apreciamos que la estadarizacion es correcta, ya que todas las medias son 0.
+
+Correlacion de puntajes z :
+```{r}
+pearson = cor(total5_s)
+pearson 
+```
+
+Matriz de correlacion de nuestras dimensiones, para ver el grado de asociasion entre ellas:
+```{r}
+cor.plot(pearson, 
+         numbers=T, 
+         upper=FALSE, 
+         main = "Correlation", 
+         show.legend = FALSE)
+``` 
+
+Kaiser Meyer Olkin:
+```{r}
+KMO(total5_s) # se ve el Overall MSA 
+```
+KMO (Kaiser‐Meyer‐Olkin) nos indica que es adecuado realizar Analisis Factorial, dado que los valores estan mas cerca a 1.
+
+
+¿Cuantos indices debemos formar?
+```{r}
+fa.parallel(pearson, fm="pa", fa="fa", main = "Scree Plot",n.obs = nrow(total5_s)) #El Scree Plot nos recimienda cuantos indices se podrian formar a partir de las dimensiones planteadas
+```
+Nos recomienda que nuestras variables se pueden distribuir en tres indices
+
+Creando los indices y verificando el grado de emparejamiento de nuestras variables seleccionadas:
+```{r}
+total5_sFA <- fa(total5_s, 
+                     nfactors=3, #Colocamos el numero de indices que el Scree Plot nos recomienda
+                     rotate="varimax"
+                      ) 
+
+total5_sFA #Mostramos los resultados
+```
+
+Observamos como se distribuyen nuestras dimensiones en los posibles indices:
+```{r}
+total5_sFA$loadings #Observamos la distribucion de variables en los indices creados
+```
+
+Graficamos como se distribuyen:
+```{r}
+fa.diagram(total5_sFA) #Lo mostramos de manera grafica
+```
+
+Observamos que Corrupcion y el PBI Nacional tienden a juntarse con las variables de Capacidad del Estado.  Sin embargo, no tenemos literatura que respalde esta tendencia. 
+Por tal motivo decidimos que Percepcion de la corrupcion y el PBI sean trabajadas como variables no pertenecientes a un determinado indice. 
+
+Eliminamos borradores para poder crear nuestros indices sin PBI Nacional y Corrupción:
+```{r}
+total5_s = NULL
+pearson = NULL
+total5_sFA = NULL
+```
+
+Asimismo, relizaremos un segundo analisis factorial tomando en cuenta todas las variables, exceptuando Percepcion de corrupcion. :
+
+*Analisis factorial de Libertades, Bienestar y Capacidad Estatal*
+Estandarizamos:
+```{r}
+factorial1_s = scale(datatotal[c(2:7, 10, 11)]) #Factorial1 es libertades, bienestar y capacidad del Estado
+```
+
+Creamos data frame:
+```{r}
+factorial1_s=as.data.frame(factorial1_s)
+```
+
+Correlacion de puntajes z de las variables seleccionadas:
+```{r}
+library(psych)
+pearson1 = cor(factorial1_s)
+pearson1 
+```
+
+Matriz de correlacion de nuestra variables seleccionadas para observar la asociasion de nuestras variables:
+```{r}
+cor.plot(pearson1, 
+         numbers=T, 
+         upper=FALSE, 
+         main = "Correlation", 
+         show.legend = FALSE)
+``` 
+Se determina que hay buena correlacion entre las variables planteadas, y que el Analisis Factorial anterior.
+
+Kaiser Meyer Olkin:
+```{r}
+KMO(factorial1_s) # se ve el Overall MSA 
+```
+Verificamos que el Overall MSA = 0.81 se acerca a 1, por lo que concluimos que es valido realizar Analisis factorial.
+
+
+¿Cuantos indices debemos formar con las variables seleccionadas?
+Realizamos el Scree Plot:
+```{r}
+fa.parallel(pearson1, fm="pa", fa="fa", main = "Scree Plot",n.obs = nrow(factorial1_s))
+```
+Nos sigue recomendando que debemos crear tres indices
+
+Creando los indices y verificando el grado de emparejamiento de nuestras variables seleccionadas:
+```{r}
+factorial1_sFA <- fa(factorial1_s, 
+                     nfactors=3, 
+                     rotate="varimax"
+                      )
+factorial1_sFA 
+```
+
+Observamos como se distribuyen nuestras dimensiones en los posibles indices:
+```{r}
+factorial1_sFA$loadings 
+```
+
+Graficamos como se distribuyen:
+```{r}
+fa.diagram(factorial1_sFA)
+```
+Se concluye que los indices creados son validos
+
+Creando los data frames de nuestros indices creados por FA:
+```{r}
+indices1_est=as.data.frame(factorial1_sFA$scores)
+names(indices1_est)= c("libertadesFA", "bienestarFA", "capacidadesFA") #Nombramos nuestros indices en base teorica
+```
+
+
+```{r}
+dimInd=indices1_est
+```
+
+```{r}
+head(dimInd)#resultado
+```
+
+
+Hacemos el plot de todas nuestras dimensiones para observar como se distribuyen nuestros casos:
+```{r}
+plot(dimInd[c(1:3)])
+```
+Por ejemplo, tomando en cuenta la Percepcion de corrupcion y el indice de Libertades, podemos realizar un ggplot que nos muestra la posición de paises usando ambas dimensiones:
+```{r}
+library(ggplot2)
+base=ggplot(dimInd,aes(x=libertadesFA,y=capacidadesFA))
+base + geom_point() + geom_text(aes(label = row.names(dimInd)),size=3.4)
+```
+En el caso de Qatar, por ejemplo, descubrimos que tiene mas alta la dimension de Capacidad a comparación de Portugal. Sin embargo, Portugal tiene mas libertades que Qatar
+
+Verificamos los nombres de nuestras dimensiones finales:
+```{r}
+names(dimInd)
+```
+
+
+## **5.Regresiones**
+
+### **5.1 Regresion Beta**
+
+*Antes de la regresion de Beta*
+Queremos hacer merge entre democracia (el valor del democracy index) y las variables independientes (con indices incluidos) para poder realizar la regresion Beta: 
+Para ello, estandarizamos las variables que no estan incluidas en los indices:
+```{r}
+demoBeta = (datatotal[c(1,8,9)]) 
+```
+```{r}
+demoBeta[,c(2,3)] = scale(demoBeta[,c(2,3)])
+```
+
+Hacemos Merge entre demoBeta y los indices
+```{r}
+totalBeta=merge(demoBeta, dimInd, by=0) 
+totalBeta=as.data.frame(totalBeta)
+```
+
+```{r}
+row.names(totalBeta) = totalBeta$Row.names
+totalBeta$Row.names = NULL #Eliminamos la columna row.names
+```
+Dividimos entre 10 para hacer que la Variable Independiente oscile entre 0 y 1 para poder realizar la regresion beta
+```{r}
+totalBeta$demoindex=(totalBeta$demoindex-5)/35
+```
+*Modelo de Regresion Beta:*
+```{r}
+library(betareg)
+modeloBeta=betareg(demoindex~.,data=totalBeta)
+```
+
+```{r}
+summary(modeloBeta)
+```
+Tras realizar la regresión beta se concluye:
+  - Que Libertades, Bienestar y Capacidad Estatal son variables estadisticamente significativas respecto a la calidad de la democracia.
+  - Asimismo, Percepcion de la corrupcion y PBI nacional no son estaditicamente significativas
+  
+Para lograr medir el impacto de las variables significativas aplicaremos la tecnica margins
+```{r}
+library(margins)
+
+(mrBeta=margins(modeloBeta))
+```
+
+Interpretacion: Se puede apreciar que 3 de las variables independientes propuestas, influyen de manera positiva en la relacion con la democracia. 
+  - Así, por ejemplo, por cada punto que aumente el indice de Libertades, el nivel de democracia aumentara en 16.8%.
+  - Por cada punto que aumente el indice de Bienestar, la democracia aumentara un 7.2%.
+  - Por último, cada punto que un pais aumente en el indice de Capacidad estatal, la democracia tambien aumentara en 5.7%. 
+```{r}
+summary(mrBeta)
+```
+Interpretacion: Se puede apreciar que la variable Libertades es la que tiene mayor efecto con la democracia. 
+Para confirmar esto, hacemos el ggplot de los efectos: 
+```{r}
+library(ggplot2)
+base= ggplot(summary(mrBeta),aes(x=factor, y=AME)) + geom_point() 
+base +  geom_errorbar(aes(ymin=lower, ymax=upper))
+```
+Así, se confirma que Libertades tiene mas efecto que cualquier otra variable. Ademas, se puede ver claramente que Corrup y el PBI son variables que pasan la linea del 0, por lo que no ejercen ningun efecto en la calidad de la democracia.   
+
+### **5.2. Regresión ordinal**
+
+Antes de la regresion ordinal
+```{r}
+demoOrd=totalBeta 
+```
+
+```{r}
+demoOrd$demoindex=round(demoOrd$demoindex,2)
+```
+
+Ordenamos nuestras observaciones en niveles de democracia segun la teoria:
+```{r}
+demoOrd$Regimen[demoOrd$demoindex >= 0.78] <- "1Democracia perfecta"
+demoOrd$Regimen[demoOrd$demoindex>= 0.52 & demoOrd$demoindex <= 0.77] <- "2Democracia imperfecta"
+demoOrd$Regimen[demoOrd$demoindex >=0.33 & demoOrd$demoindex <= 0.51] <- "3Regimen Hibrido"
+demoOrd$Regimen[demoOrd$demoindex<= 0.32] <- "4Regimen Autoritario"
+```
+
+```{r}
+demoOrd$demoindex=NULL #Para elaborar la regresion ordinal descartamos el demoindex y nos quedamos con la variable ordinal creada
+```
+
+```{r}
+# Conocemos el numero de paises pertenecientes a cada categoria de Regimen democratico?
+table(demoOrd$Regimen,exclude = 'nothing')
+```
+```{r}
+# poner numero delante, ayuda a crear una ordinal
+demoOrd$Regimen=as.ordered(demoOrd$Regimen)
+```
+Grafiquemos la distribucion de los paises en las categorias:
+```{r}
+barplot(table(demoOrd$Regimen), cex.names = 0.9, cex.axis = 0.6)
+```
+*Modelo de Regresion ordinal:*
+```{r}
+library("oglmx")
+rOrdi=ologit.reg(Regimen ~.,data = demoOrd,)
+```
+```{r}
+summary(rOrdi)
+```
+Apreciamos que tanto Libertades como Bienestar y Capacidad Estatal son estadisticamente significativas para explicar la calidad de la democracia
+```{r}
+library(margins)
+(rmOrdi=margins(rOrdi))
+```
+ - Tres variables independientes tienen un efecto significativo en los paises de "Regimen Hibrido" y con "Democracia imperfecta". Sin embargo, no en las "democracias plenas" o regimenes "Autoritarios". Asimismo, la Percepcion de Corrupcion y el PBI son las unicas variables que no tienen un efecto significativo en ninguno de los regimenes. 
+ -Las libertades, el bienestar y la capacidad del estado, tienen una relacion directa con la democracia; de modo que dichas variables aumentan la probabilidad de un pais de tener una democracia imperfecta. Por otro lado, a medida que se registren aumentos en los niveles de libertades, bienestar o capacidad estatal, disminuira la probabilidad de un pais de pertenecer a un regimen hibrido. Es decir, en este caso, la relacion es inversa.
+
+
+
+## **6. Mapa de similitudes, Analisis de conglomerados y Mapas**
+
+Para el mapa de similitudes se deben usar las distancias, para poder determinar los paises con mas cercania a otros, y establecer los neighborhoods: 
+```{r}
+Var_d=dist(indices1_est)
+```
+Utilizaremos las distancias entre los paises para crear VarInd_map, que luego utlizaremos para construir el Mapa de similitudes: 
+```{r}
+VarInd_map = cmdscale(Var_d, eig=TRUE, k=2)
+VarInd_map$GOF 
+#La bondad de ajuste esta relativamente cerca a 1, lo que indica que es adecuado que juntemos las variables para el mapa de similitudes
+```
+
+### **6.1.Mapa de Similitudes**
+
+Queremos saber las distancias entre nuestros casos y qué tipos de vecindarios forman:
+
+```{r}
+titulo= "Mapa de similitudes entre paises"
+x = VarInd_map$points[,1]
+y = VarInd_map$points[,2]
+plot(x, y, xlab= "Dimension 1", ylab = "Dimension 2",  main=titulo, type = "n")
+text (x, y,  labels =rownames(VarInd_map$points), cex=0.5)
+
+```
+
+
+Se aprecia que tanto Cuba, Russia Iran son paises mas cercanos a comparacion de Nigeria, Afghanistan y Sierra Leona
+
+Guardamos en un data frame:
+```{r}
+VarInd_map_DF = as.data.frame(VarInd_map$points)
+```
+
+```{r}
+library(ggrepel)
+base=ggplot(VarInd_map_DF,aes(x=V1,y=V2))
+base+geom_point() + geom_text_repel(aes(label=row.names(VarInd_map_DF)),size=2) #Para apreciar con mayor detalle la ubicacion de los paises
+```
+
+### **6.2.Analisis de conglomerados**
+
+En el analisis de conglomerados lo que se espera es agrupar a los paises teniendo en cuenta la similitud de sus caracteristicas. Hallamos eso utilizando kmeans:
+```{r}
+grupos=kmeans(Var_d, centers = 4) #lo separamos en 4 grupos, tomando en cuenta las categorias de la data de democracia
+
+```
+Vemos el total de paises en cada grupo 
+```{r}
+table(grupos$cluster) # Mostramos cuantos paises se agrupan en cada cluster.
+```
+
+Para observar de mejor los clausters le asignamos colores:
+```{r}
+VarInd_map_DF$cluster=as.factor(grupos$cluster)
+base=ggplot(VarInd_map_DF,aes(x=V1,y=V2))
+base+geom_point(aes(colour=cluster)) + geom_text_repel(aes(label=row.names(VarInd_map_DF)),size=2)
+```
+
+
+### **6.3. Mapas**
+```{r}
+folderMap='MapaMundo'
+fileName='world_map.shp'
+fileToRead=file.path(folderMap,fileName)
+
+library(rgdal)
+mundoMap = readOGR(fileToRead,stringsAsFactors=FALSE)
+```
+Sin problema, el mapa se dibujará:
+```{r}
+plot(mundoMap, border='grey')
+```
+
+
+```{r}
+head(mundoMap@data)
+```
+Que tan bien saldra el merge...
+
+```{r}
+countryClus=as.data.frame(grupos$cluster)
+countryClus
+```
+```{r}
+names(countryClus)='cluster'
+countryClus$NAME=row.names(countryClus)
+head(countryClus)
+```
+
+Renombramos a los paises para evitar perderlos
+```{r}
+mundoMap[7,5] = "Samoa"
+mundoMap[23,5] = "Brunei"
+mundoMap[27,5] = "Congo Brazzaville"
+mundoMap[28,5] = "Congo Kinshasa"
+mundoMap[58,5] = "Czech Republic"
+mundoMap[63,5] = "Micronesia"
+mundoMap[84,5] = "Iran"
+mundoMap[94,5] = "North Korea"
+mundoMap[96,5] = "South Korea"
+mundoMap[167,5] = "Guinea"
+mundoMap[192,5] = "Syria"
+mundoMap[205,5] = "Tanzania"
+mundoMap[216,5] = "Vietnam"
+```
+*Merge entre el mapa y la data de clusters*
+```{r}
+Mapa_VarInd= merge (mundoMap, countryClus)
+```
+
+Ahora sí grafiquemos:
+
+```{r}
+# colores
+myColors=rainbow(4)
+
+
+plot(mundoMap,col='grey',border=NA)
+plot(Mapa_VarInd,col=myColors[Mapa_VarInd$cluster],main='Grupos',border=NA,add=T)
+```
+
+
+
+*Mapa interactivo sin leyenda*
+Guiandonos de nuestra clasificion de los paises segun su calidad de democracia
+```{r}
+library(leaflet)
+
+#newMaps!
+c1=Mapa_VarInd[!is.na(Mapa_VarInd$cluster) & Mapa_VarInd$cluster==1,]
+c2=Mapa_VarInd[!is.na(Mapa_VarInd$cluster) & Mapa_VarInd$cluster==2,]
+c3=Mapa_VarInd[!is.na(Mapa_VarInd$cluster) & Mapa_VarInd$cluster==3,]
+c4=Mapa_VarInd[!is.na(Mapa_VarInd$cluster) & Mapa_VarInd$cluster==4,]
+
+title="Clusters"
+
+# base Layer
+base= leaflet() %>% addProviderTiles("CartoDB.Positron") 
+
+layer1= base %>%
+        addPolygons(data=c1,color='blue',fillOpacity = 1,stroke = F,
+                    group = "1")
+layer_12= layer1%>%addPolygons(data=c2,color="green",fillOpacity = 1,stroke = F,
+                              group = "2")
+
+layer_123= layer_12%>%addPolygons(data=c3,color="orange",fillOpacity = 1,stroke = F,
+                              group = "3")
+
+layer_1234= layer_123%>%addPolygons(data=c4,color="red",fillOpacity = 1,stroke = F,
+                              group = "4")
+
+layer_1234
+
+```
+
+*Mapa interactivo con leyenda*
+```{r}
+layer_1234%>% addLayersControl(
+        overlayGroups = c("1", "2","3","4"),
+        options = layersControlOptions(collapsed = FALSE))
+```
